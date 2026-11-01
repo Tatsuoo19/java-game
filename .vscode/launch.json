@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run Brick Breaker",
+            "request": "launch",
+            "mainClass": "brickBreacker.Brick",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
