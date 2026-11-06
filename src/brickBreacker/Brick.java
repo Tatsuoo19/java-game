@@ -12,7 +12,7 @@ public class Brick {
     private static void createWindow() {
         JFrame obj = new JFrame();
         BrickBreaker gameplay = new BrickBreaker();
-        obj.setTitle("Brick Breaker - Four Seasons");
+        obj.setTitle("BRICK BLOCK - Four Seasons");
         obj.setResizable(false);
         obj.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         obj.add(gameplay);

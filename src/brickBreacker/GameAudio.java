@@ -15,6 +15,9 @@ public class GameAudio implements AutoCloseable {
     });
     private final Map<String, Clip> effects = new HashMap<>();
     private Clip music;
+    private Clip fallback;
+    private final Map<Level, Clip> tracks = new EnumMap<>(Level.class);
+    private Level current;
     private boolean enabled = true;
 
     public GameAudio() {
@@ -22,6 +25,7 @@ public class GameAudio implements AutoCloseable {
             try {
                 music = clip(new double[] { 262, 330, 392, 330, 294, 349, 440, 349, 330, 392, 494, 392, 294,
                         349, 392, 294 }, .24, .10);
+                fallback = music;
                 effects.put("hit", clip(new double[] { 550, 350 }, .04, .18));
                 effects.put("bounce", clip(new double[] { 330 }, .05, .14));
                 effects.put("bonus", clip(new double[] { 523, 659, 784 }, .09, .16));
@@ -55,9 +59,46 @@ public class GameAudio implements AutoCloseable {
         return c;
     }
 
+    private Clip track(Level level) {
+        if (tracks.containsKey(level))
+            return tracks.get(level);
+        Clip loaded = null;
+        String path = "assets/music/"
+                + (level == Level.BOSS ? "boss" : level.name().toLowerCase(java.util.Locale.ROOT)) + ".wav";
+        try {
+            java.io.InputStream resource = GameAudio.class.getResourceAsStream("/" + path);
+            try (AudioInputStream stream = resource == null
+                    ? AudioSystem.getAudioInputStream(new java.io.File(path))
+                    : AudioSystem.getAudioInputStream(new java.io.BufferedInputStream(resource))) {
+                loaded = AudioSystem.getClip();
+                loaded.open(stream);
+            }
+        } catch (java.io.IOException | UnsupportedAudioFileException | LineUnavailableException
+                | IllegalArgumentException | SecurityException e) {
+            if (loaded != null)
+                loaded.close();
+            loaded = fallback;
+            System.err.println("Stage music unavailable (" + path + "); using fallback: " + e.getMessage());
+        }
+        tracks.put(level, loaded);
+        return loaded;
+    }
+
     public void sync(boolean enabled, boolean playing) {
+        sync(enabled, playing, Level.WINTER);
+    }
+
+    public void sync(boolean enabled, boolean playing, Level level) {
         worker.execute(() -> {
             this.enabled = enabled;
+            if (current != level) {
+                if (music != null)
+                    music.stop();
+                music = track(level);
+                current = level;
+                if (music != null)
+                    music.setFramePosition(0);
+            }
             if (music != null) {
                 if (enabled && playing && !music.isRunning())
                     music.loop(Clip.LOOP_CONTINUOUSLY);
@@ -81,6 +122,12 @@ public class GameAudio implements AutoCloseable {
     }
 
     private void release() {
+        for (Clip c : new java.util.HashSet<>(tracks.values()))
+            if (c != null)
+                c.close();
+        tracks.clear();
+        if (fallback != null)
+            fallback.close();
         if (music != null) {
             music.close();
             music = null;

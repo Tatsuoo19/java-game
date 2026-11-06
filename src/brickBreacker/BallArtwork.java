@@ -20,6 +20,14 @@ public final class BallArtwork {
         return load(PATH);
     }
 
+    public static BufferedImage loadExpression(int lives) {
+        String name = lives >= 3 ? "happy" : lives == 2 ? "sad" : "angry";
+        String path = "assets/face-" + name + ".png";
+        if (BallArtwork.class.getResource("/" + path) == null && !new File(path).isFile())
+            return load();
+        return load(path);
+    }
+
     static BufferedImage load(String path) {
         try {
             BufferedImage source;
@@ -34,9 +42,11 @@ public final class BallArtwork {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             g.setClip(new Ellipse2D.Double(3, 3, 122, 122));
             // Face-centered square from the supplied 1080 x 1920 portrait.
-            int side = (int) (source.getWidth() * .65);
-            int x = (int) (source.getWidth() * .285);
-            int y = (int) (source.getHeight() * .335);
+            boolean variant = path.contains("face-");
+            int side = variant ? Math.min(source.getWidth(), source.getHeight())
+                    : (int) (source.getWidth() * .65);
+            int x = variant ? (source.getWidth() - side) / 2 : (int) (source.getWidth() * .285);
+            int y = variant ? (source.getHeight() - side) / 2 : (int) (source.getHeight() * .335);
             side = Math.min(side, Math.min(source.getWidth() - x, source.getHeight() - y));
             g.drawImage(source, 3, 3, 125, 125, x, y, x + side, y + side, null);
             g.setClip(null);
@@ -47,6 +57,8 @@ public final class BallArtwork {
             return result;
         } catch (IOException | SecurityException e) {
             System.err.println("Ball photo unavailable; using drawn face: " + e.getMessage());
+            if (path.contains("face-"))
+                return load();
             return fallback();
         }
     }

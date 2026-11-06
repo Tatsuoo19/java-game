@@ -10,19 +10,21 @@ import java.util.function.Consumer;
 /** Independent simulation; rendering never mutates gameplay. */
 public class GameModel implements BrickContext {
     public enum State {
-        WELCOME, PLAYING, PAUSED, TRANSITION, GAME_OVER, VICTORY
+        WELCOME, SELECTING, PLAYING, PAUSED, TRANSITION, GAME_OVER, VICTORY
     }
 
     public static class Falling {
         private double x, y;
         private final PowerUpType type;
         private final boolean enemy;
+        private double vx, vy;
 
         Falling(double x, double y, PowerUpType type) {
             this.x = x;
             this.y = y;
             this.type = type;
             this.enemy = type == PowerUpType.NONE;
+            vy = enemy ? 165 : 115;
         }
 
         public double getX() {
@@ -42,7 +44,8 @@ public class GameModel implements BrickContext {
         }
 
         private void advance(double dt) {
-            y += (enemy ? 165 : 115) * dt;
+            x += vx * dt;
+            y += vy * dt;
         }
 
         Rectangle2D bounds() {
@@ -51,18 +54,82 @@ public class GameModel implements BrickContext {
     }
 
     private final GameEffects effects = new GameEffects();
-    private final java.util.Set<GameBrick> contacts = new java.util.HashSet<>();
+    private final java.util.Map<Ball, java.util.Set<GameBrick>> contacts = new java.util.IdentityHashMap<>();
+    private final java.util.Set<Ball> bossContacts = java.util.Collections
+            .newSetFromMap(new java.util.IdentityHashMap<Ball, Boolean>());
+    private final List<Ball> balls = new ArrayList<>();
+    private final List<Falling> lasers = new ArrayList<>();
+    private final java.util.Random random;
+    private Boss boss;
+    private final LaserPaddle laser = new LaserPaddle();
+    private boolean firing;
+    private double hitCooldown;
+    private Stage startingStage = Stage.WINTER;
+
+    public GameModel() {
+        this(new java.util.Random());
+    }
+
+    public GameModel(java.util.Random random) {
+        this.random = Objects.requireNonNull(random);
+        balls.add(ball);
+    }
+
+    public List<Ball> getBalls() {
+        return Collections.unmodifiableList(balls);
+    }
+
+    public List<Falling> getLasers() {
+        return Collections.unmodifiableList(lasers);
+    }
+
+    public Boss getBoss() {
+        return boss;
+    }
+
+    public LaserPaddle getLaser() {
+        return laser;
+    }
+
+    public void setFiring(boolean firing) {
+        this.firing = firing && state == State.PLAYING && season().isBoss();
+    }
+
+    public void showLevelSelection() {
+        firing = false;
+        state = State.SELECTING;
+    }
+
+    public void startAt(Stage stage) {
+        startingStage = Objects.requireNonNull(stage);
+        start();
+    }
+
+    public void addBossShot(double x, double y, double vx, double vy) {
+        Falling shot = new Falling(x, y, PowerUpType.NONE);
+        shot.vx = vx;
+        shot.vy = vy;
+        falling.add(shot);
+    }
+
+    @Override
+    public Ball nearestBall(double x, double y) {
+        return balls.stream()
+                .min(java.util.Comparator.comparingDouble(b -> Math.hypot(b.getX() - x, b.getY() - y)))
+                .orElse(ball);
+    }
 
     public GameEffects getEffects() {
         return effects;
     }
 
     public String getAbilityName() {
-        return SeasonAbility.forLevel(season()).name();
+        return season().isBoss() ? "Laser Paddle [X]" : SeasonAbility.forLevel(season()).name();
     }
 
     public boolean canActivateAbility() {
-        return state == State.PLAYING && preview <= 0 && ball.getLaunched() && effects.getCharge() == 100;
+        return !season().isBoss() && state == State.PLAYING && preview <= 0 && getBall().getLaunched()
+                && effects.getCharge() == 100;
     }
 
     public void activateAbility() {
@@ -86,6 +153,20 @@ public class GameModel implements BrickContext {
 
     private void collect(PowerUpType type) {
         switch (type) {
+        case MULTIBALL:
+            Ball source = getBall();
+            if (!balls.isEmpty() && source.getLaunched()) {
+                int missing = 3 - balls.size();
+                for (int i = 0; i < missing; i++)
+                    balls.add(source.split(Math.toRadians(i == 0 ? 25 : -25)));
+            }
+            break;
+        case EXTRA_LIFE:
+            if (lives < 3)
+                lives++;
+            else
+                score += 50;
+            break;
         case WIDE:
             paddle.widen();
             break;
@@ -121,7 +202,7 @@ public class GameModel implements BrickContext {
     public void start() {
         score = 0;
         lives = 3;
-        level = 0;
+        level = startingStage.ordinal();
         loadLevel();
     }
 
@@ -132,7 +213,10 @@ public class GameModel implements BrickContext {
         clearEffects();
         paddle.moveTo(335);
         ball.dock(paddle);
-        preview = 3;
+        balls.clear();
+        balls.add(ball);
+        boss = season().isBoss() ? new Boss() : null;
+        preview = season().isBoss() ? 0 : 3;
         elapsed = 0;
         state = State.PLAYING;
     }
@@ -146,10 +230,11 @@ public class GameModel implements BrickContext {
 
     public void launch() {
         if (state == State.PLAYING && preview <= 0)
-            ball.launch(level);
+            getBall().launch(Math.min(level, 3));
     }
 
     public void pause() {
+        firing = false;
         if (state == State.PLAYING)
             state = State.PAUSED;
     }
@@ -163,6 +248,11 @@ public class GameModel implements BrickContext {
         falling.clear();
         effects.clear();
         contacts.clear();
+        bossContacts.clear();
+        lasers.clear();
+        laser.reset();
+        firing = false;
+        hitCooldown = 0;
         paddle.clearEffects();
         slowBallTime = invisibleTime = 0;
         glitchCountdown = 15;
@@ -176,8 +266,11 @@ public class GameModel implements BrickContext {
             return;
         score += effects.getDoubleScore() > 0 ? 20 : 10;
         effects.charge();
-        if (b.getPower() != PowerUpType.NONE)
-            falling.add(new Falling(b.getX() + 41, b.getY() + 14, b.getPower()));
+        if (random.nextDouble() < .25) {
+            PowerUpType[] types = { PowerUpType.WIDE, PowerUpType.SLOW, PowerUpType.RESCUE,
+                    PowerUpType.FREEZE, PowerUpType.MULTIBALL, PowerUpType.EXTRA_LIFE };
+            falling.add(new Falling(b.getX() + 37, b.getY() + 14, types[random.nextInt(types.length)]));
+        }
     }
 
     @Override
@@ -215,7 +308,7 @@ public class GameModel implements BrickContext {
                 : mouseX - paddle.width() / 2.0;
         paddle.moveTo(paddle.getX() + Math.max(-speed * dt, Math.min(speed * dt, target - paddle.getX())));
         preview = Math.max(0, preview - dt);
-        if (!ball.getLaunched()) {
+        if (!getBall().getLaunched()) {
             ball.dock(paddle);
             return;
         }
@@ -223,38 +316,83 @@ public class GameModel implements BrickContext {
         elapsed += dt;
         slowBallTime = Math.max(0, slowBallTime - dt);
         invisibleTime = Math.max(0, invisibleTime - dt);
-        if (level == 2 && effects.getLantern() <= 0) {
+        if (season() == Level.AUTUMN && effects.getLantern() <= 0) {
             glitchCountdown -= dt;
-            if (glitchCountdown <= 0 && ball.getY() < 410) {
+            if (glitchCountdown <= 0 && getBall().getY() < 410) {
                 invisibleTime = 1;
                 glitchCountdown = 15;
             }
-            if (ball.getY() >= 450)
+            if (getBall().getY() >= 450)
                 invisibleTime = 0;
         }
         for (GameBrick brick : bricks)
             if (brick.alive() && effects.getFreeze() <= 0)
                 brick.update(dt, this);
-        double oldX = ball.getX(), oldY = ball.getY(), factor = slowBallTime > 0 ? .65 : 1;
-        ball.advance(dt * factor * getBallSpeedMultiplier());
-        ball.constrainToWalls();
-        if (ball.getVy() > 0 && ball.bounds().intersects(paddle.bounds())) {
-            ball.bounceOff(paddle);
-            sound.accept("bounce");
+        hitCooldown = Math.max(0, hitCooldown - dt);
+        if (boss != null) {
+            boss.update(dt, this);
+            if (laser.update(dt, firing)) {
+                Falling shot = new Falling(paddle.getX() + paddle.width() / 2.0, Paddle.Y, PowerUpType.NONE);
+                shot.vy = -600;
+                lasers.add(shot);
+            }
+            for (java.util.Iterator<Falling> it = lasers.iterator(); it.hasNext();) {
+                Falling shot = it.next();
+                shot.advance(dt);
+                if (shot.bounds().intersects(boss.bounds())) {
+                    boss.damage(1);
+                    it.remove();
+                } else if (shot.y < 64)
+                    it.remove();
+            }
         }
-        contacts.removeIf(b -> !b.alive() || !b.bounds().intersects(ball.bounds()));
-        for (GameBrick b : bricks) {
-            if (!b.alive() || !b.bounds().intersects(ball.bounds()) || contacts.contains(b))
-                continue;
-            contacts.add(b);
-            hit(b);
-            if (effects.getPiercing() > 0)
-                continue;
-            if (oldY + Ball.SIZE <= b.getY() || oldY >= b.getY() + GameBrick.HEIGHT)
-                ball.bounceVertical(oldY);
-            else
-                ball.bounceHorizontal(oldX);
-            break;
+        for (Ball ball : new ArrayList<>(balls)) {
+            double oldX = ball.getX(), oldY = ball.getY(), factor = slowBallTime > 0 ? .65 : 1;
+            ball.advance(dt * factor * getBallSpeedMultiplier());
+            ball.constrainToWalls();
+            if (ball.getVy() > 0 && ball.bounds().intersects(paddle.bounds())) {
+                ball.bounceOff(paddle);
+                sound.accept("bounce");
+            }
+            java.util.Set<GameBrick> touched = contacts.computeIfAbsent(ball, k -> new java.util.HashSet<>());
+            touched.removeIf(b -> !b.alive() || !b.bounds().intersects(ball.bounds()));
+            for (GameBrick b : bricks) {
+                if (!b.alive() || !b.bounds().intersects(ball.bounds()) || touched.contains(b))
+                    continue;
+                touched.add(b);
+                hit(b);
+                if (effects.getPiercing() > 0)
+                    continue;
+                if (oldY + Ball.SIZE <= b.getY() || oldY >= b.getY() + GameBrick.HEIGHT)
+                    ball.bounceVertical(oldY);
+                else
+                    ball.bounceHorizontal(oldX);
+                break;
+            }
+
+            if (boss != null) {
+                if (!boss.bounds().intersects(ball.bounds()))
+                    bossContacts.remove(ball);
+                else if (bossContacts.add(ball)) {
+                    boss.damage(5);
+                    if (oldY >= 215)
+                        ball.bounceVertical(215);
+                    else if (oldY + Ball.SIZE <= 115)
+                        ball.bounceVertical(115 - Ball.SIZE);
+                    else
+                        ball.bounceHorizontal(oldX);
+                }
+            }
+            if (effects.hasShield() && ball.getVy() > 0 && ball.getY() + Ball.SIZE >= 582) {
+                effects.consumeShield();
+                ball.bounceVertical(582 - Ball.SIZE);
+                sound.accept("bounce");
+            }
+            if (ball.getY() > 600) {
+                balls.remove(ball);
+                contacts.remove(ball);
+                bossContacts.remove(ball);
+            }
         }
         for (int i = falling.size() - 1; i >= 0; i--) {
             Falling f = falling.get(i);
@@ -262,29 +400,27 @@ public class GameModel implements BrickContext {
                 continue;
             f.advance(dt);
             if (f.bounds().intersects(paddle.bounds())) {
-                if (f.enemy)
+                if (f.enemy && hitCooldown <= 0) {
                     paddle.slow();
-                else
+                    hitCooldown = 1;
+                } else
                     collect(f.type);
                 sound.accept(f.enemy ? "hit" : "bonus");
                 falling.remove(i);
             } else if (f.y > 610)
                 falling.remove(i);
         }
-        if (effects.hasShield() && ball.getVy() > 0 && ball.getY() + Ball.SIZE >= 582) {
-            effects.consumeShield();
-            ball.bounceVertical(582 - Ball.SIZE);
-            sound.accept("bounce");
-        }
-        if (bricks.stream().noneMatch(GameBrick::alive)) {
+        if ((boss != null && boss.getHealth() == 0)
+                || (boss == null && bricks.stream().noneMatch(GameBrick::alive))) {
             clearEffects();
             lives = Math.min(3, lives + 1);
-            state = level == 3 ? State.VICTORY : State.TRANSITION;
+            state = season().isBoss() ? State.VICTORY : State.TRANSITION;
             sound.accept("win");
-        } else if (ball.getY() > 600) {
+        } else if (balls.isEmpty()) {
             lives--;
             clearEffects();
             ball.dock(paddle);
+            balls.add(ball);
             sound.accept("lose");
             if (lives == 0)
                 state = State.GAME_OVER;
@@ -296,7 +432,7 @@ public class GameModel implements BrickContext {
     }
 
     public Ball getBall() {
-        return ball;
+        return balls.isEmpty() ? ball : balls.get(0);
     }
 
     public Paddle getPaddle() {
@@ -331,7 +467,9 @@ public class GameModel implements BrickContext {
         return elapsed;
     }
 
-    /** Speed builds during launched play and resets with the season's elapsed timer. */
+    /**
+     * Speed builds during launched play and resets with the season's elapsed timer.
+     */
     public double getBallSpeedMultiplier() {
         return 1 + Math.min(elapsed / 50.0, 1);
     }

@@ -8,6 +8,10 @@ public interface BrickContext {
 
     List<GameBrick> getBricks();
 
+    default Ball nearestBall(double x, double y) {
+        return getBall();
+    }
+
     void memoryHit(int number);
 
     void requestProjectile(double x, double y);

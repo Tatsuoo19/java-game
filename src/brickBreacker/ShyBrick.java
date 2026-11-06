@@ -14,7 +14,7 @@ public final class ShyBrick extends GameBrick {
         if (!alive())
             return;
         cooldown -= dt;
-        Ball ball = context.getBall();
+        Ball ball = context.nearestBall(getX(), getY());
         if (cooldown > 0 || Math.abs(ball.getX() - getX()) >= 95 || Math.abs(ball.getY() - getY()) >= 90)
             return;
         double original = getX();

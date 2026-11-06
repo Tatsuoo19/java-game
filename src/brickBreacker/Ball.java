@@ -45,6 +45,16 @@ public class Ball {
         return launched;
     }
 
+    public Ball split(double angle) {
+        Ball copy = new Ball();
+        copy.x = x;
+        copy.y = y;
+        copy.launched = true;
+        copy.vx = vx * Math.cos(angle) - vy * Math.sin(angle);
+        copy.vy = vx * Math.sin(angle) + vy * Math.cos(angle);
+        return copy;
+    }
+
     public void advance(double dt) {
         x += vx * dt;
         y += vy * dt;

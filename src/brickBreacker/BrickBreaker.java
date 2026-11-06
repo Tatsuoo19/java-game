@@ -15,6 +15,9 @@ public final class BrickBreaker extends JPanel {
     private final JButton pause = new JButton("Pause"), sound = new JButton("Sound: On");
     private final BufferedImage scene = new BufferedImage(800, 600, BufferedImage.TYPE_INT_RGB),
             face = BallArtwork.load();
+    private final BufferedImage[] faces = { BallArtwork.loadExpression(1), BallArtwork.loadExpression(2),
+            BallArtwork.loadExpression(3) };
+    private Stage selected = Stage.WINTER;
     private final JButton ability = new JButton("Season Power [E]");
     private final Timer timer;
     private GameModel.State shown;
@@ -29,7 +32,7 @@ public final class BrickBreaker extends JPanel {
         game.setSoundListener(audio::play);
         menu.setOpaque(false);
         menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
-        menu.setBounds(100, 280, 600, 145);
+        menu.setBounds(100, 250, 600, 195);
         add(menu);
         pause.setBounds(584, 16, 90, 32);
         pause.addActionListener(e -> togglePause());
@@ -56,6 +59,18 @@ public final class BrickBreaker extends JPanel {
         ability.addActionListener(e -> game.activateAbility());
         add(ability);
         bind("E", game::activateAbility);
+        bind("X", () -> game.setFiring(true));
+        bind("released X", () -> game.setFiring(false));
+        ability.addMouseListener(new MouseAdapter() {
+            public void mousePressed(MouseEvent e) {
+                if (game.season().isBoss())
+                    game.setFiring(true);
+            }
+
+            public void mouseReleased(MouseEvent e) {
+                game.setFiring(false);
+            }
+        });
         bind("SPACE", game::launch);
         bind("P", this::togglePause);
         bind("ESCAPE", this::togglePause);
@@ -101,6 +116,7 @@ public final class BrickBreaker extends JPanel {
         else
             game.pause();
         left = right = false;
+        game.setFiring(false);
         refresh();
     }
 
@@ -116,7 +132,7 @@ public final class BrickBreaker extends JPanel {
     }
 
     private void syncAudio() {
-        audio.sync(!muted, game.getState() != GameModel.State.PAUSED);
+        audio.sync(!muted, game.getState() != GameModel.State.PAUSED, game.season());
     }
 
     private void button(String text, Runnable action) {
@@ -136,9 +152,12 @@ public final class BrickBreaker extends JPanel {
 
     private void refresh() {
         ability.setVisible(game.getState() == GameModel.State.PLAYING);
-        ability.setEnabled(game.canActivateAbility());
-        ability.setText(game.canActivateAbility() ? "READY! [E]"
-                : "Season Power " + game.getEffects().getCharge() + "%");
+        ability.setEnabled(game.season().isBoss()
+                ? game.getState() == GameModel.State.PLAYING && game.getBall().getLaunched()
+                : game.canActivateAbility());
+        ability.setText(game.season().isBoss() ? "Fire Laser [X]"
+                : game.canActivateAbility() ? "READY! [E]"
+                        : "Season Power " + game.getEffects().getCharge() + "%");
         ability.setToolTipText(game.getAbilityName());
         if (shown == game.getState())
             return;
@@ -151,15 +170,30 @@ public final class BrickBreaker extends JPanel {
         syncAudio();
         switch (shown) {
         case WELCOME:
-            button("Start Adventure", game::start);
+            button("Start Adventure", () -> game.startAt(Stage.WINTER));
+            button("Select Level", game::showLevelSelection);
             button(mouseMode ? "Controls: Mouse" : "Controls: Keyboard", () -> {
                 mouseMode = !mouseMode;
                 shown = null;
             });
             break;
+        case SELECTING:
+            JComboBox<Stage> choices = new JComboBox<>(Stage.values());
+            choices.setSelectedItem(selected);
+            choices.setMaximumSize(new Dimension(290, 35));
+            choices.addActionListener(e -> {
+                selected = (Stage) choices.getSelectedItem();
+                repaint();
+            });
+            menu.add(choices);
+            menu.add(Box.createVerticalStrut(9));
+            button("Start Selected Level", () -> game.startAt(selected));
+            button("Main Menu", game::returnToMenu);
+            break;
         case PAUSED:
             button("Resume", game::resume);
             button("Restart Game", game::start);
+            button("Select Level", game::showLevelSelection);
             button("Main Menu", game::returnToMenu);
             break;
         case TRANSITION:
@@ -185,15 +219,6 @@ public final class BrickBreaker extends JPanel {
         s.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         drawField(s);
         s.dispose();
-        if (game.getLevel() == 3 && game.getState() != GameModel.State.WELCOME) {
-            int[] pixels = scene.getRGB(0, 64, 800, 536, null, 0, 800);
-            for (int i = 0; i < pixels.length; i++) {
-                int c = pixels[i],
-                        v = (((c >> 16) & 255) * 30 + ((c >> 8) & 255) * 59 + (c & 255) * 11) / 100;
-                pixels[i] = 0xff000000 | (v << 16) | (v << 8) | v;
-            }
-            scene.setRGB(0, 64, 800, 536, pixels, 0, 800);
-        }
         Graphics2D g = (Graphics2D) graphics.create();
         g.drawImage(scene, 0, 0, null);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -210,12 +235,19 @@ public final class BrickBreaker extends JPanel {
         g.setColor(new Color(255, 255, 255, 25));
         for (int i = 0; i < 22; i++) {
             int x = (i * 137) % 800, y = 80 + (i * 67) % 450;
-            if (game.getLevel() == 0) {
-                g.drawOval(x, y, 12, 12);
+            if (game.season() == Level.SPRING) {
+                g.setColor(new Color(255, 180, 210, 130));
+                g.drawLine(x, y, x + 12, y + 25);
+                for (int petal = 0; petal < 5; petal++)
+                    g.fillOval(x + (int) (Math.cos(petal * 1.256) * 7),
+                            y + (int) (Math.sin(petal * 1.256) * 7), 7, 7);
                 g.drawLine(x + 6, y + 12, x + 6, y + 28);
-            } else if (game.getLevel() == 1)
+            } else if (game.season() == Level.SUMMER) {
+                g.setColor(new Color(90, 210, 220, 90));
                 g.drawArc(x, y, 100, 30, 0, 180);
-            else if (game.getLevel() == 2) {
+                g.drawLine(x + 20, y, x + 12, y - 30);
+                g.drawArc(x - 10, y - 45, 55, 30, 0, 180);
+            } else if (game.season() == Level.AUTUMN) {
                 g.drawLine(x, y, x + 8, y + 10);
                 g.drawLine(x + 8, y + 10, x + 16, y);
             } else {
@@ -235,10 +267,17 @@ public final class BrickBreaker extends JPanel {
         }
         g.setColor(game.getPaddle().getSlowTime() > 0 ? new Color(255, 130, 120) : season.accent);
         g.fillRoundRect((int) game.getPaddle().getX(), Paddle.Y, game.getPaddle().width(), 14, 14, 14);
-        if (game.getInvisibleTime() <= 0)
-            g.drawImage(face, (int) game.getBall().getX(), (int) game.getBall().getY(), Ball.SIZE, Ball.SIZE,
-                    null);
-        if (game.getEffects().getLantern() <= 0 && game.getLevel() == 2 && game.getPreview() <= 0
+        BufferedImage expression = faces[Math.max(0, Math.min(2, game.getLives() - 1))];
+        for (Ball ball : game.getBalls()) {
+            if (game.getInvisibleTime() <= 0)
+                g.drawImage(expression, (int) ball.getX(), (int) ball.getY(), Ball.SIZE, Ball.SIZE, null);
+        }
+        if (game.getBoss() != null)
+            drawBoss(g);
+        g.setColor(Color.CYAN);
+        for (GameModel.Falling shot : game.getLasers())
+            g.fillRect((int) shot.getX() - 2, (int) shot.getY() - 10, 4, 20);
+        if (game.getEffects().getLantern() <= 0 && game.season() == Level.AUTUMN && game.getPreview() <= 0
                 && game.getState() != GameModel.State.WELCOME) {
             Shape clip = g.getClip();
             g.clipRect(0, 64, 800, 536);
@@ -282,7 +321,7 @@ public final class BrickBreaker extends JPanel {
         if (b.getKind() == GameBrick.Kind.MEMORY)
             color = new Color(160, 182, 248);
         g.setColor(color);
-        g.fillRoundRect(x, y, 74, 28, game.getLevel() == 2 ? 20 : 9, 12);
+        g.fillRoundRect(x, y, 74, 28, game.season() == Level.AUTUMN ? 20 : 9, 12);
         g.setColor(new Color(255, 255, 255, 70));
         g.drawRoundRect(x, y, 74, 28, 9, 12);
         g.setColor(new Color(25, 29, 39));
@@ -309,7 +348,7 @@ public final class BrickBreaker extends JPanel {
                 g.fillOval(x + 55, y + 16, 8, 3);
             }
         }
-        if (game.getLevel() == 2) {
+        if (game.season() == Level.AUTUMN) {
             if (b.getKind() == GameBrick.Kind.SLEEPING) {
                 // A tiny ghost accompanies sleeping Halloween bricks.
                 g.setColor(Color.WHITE);
@@ -365,13 +404,18 @@ public final class BrickBreaker extends JPanel {
                 + (powers.getPiercing() > 0 ? "Pierce " + (int) Math.ceil(powers.getPiercing()) + "s  " : "")
                 + (powers.getLantern() > 0 ? "Light " + (int) Math.ceil(powers.getLantern()) + "s  " : "")
                 + (powers.getDoubleScore() > 0 ? "2x " + (int) Math.ceil(powers.getDoubleScore()) + "s" : "");
-        g.drawString(game.getAbilityName() + " | " + active, 414, 52);
+        g.drawString(game.season().isBoss()
+                ? "Laser energy: "
+                        + String.format(java.util.Locale.ROOT, "%.1f / 3", game.getLaser().getEnergy())
+                : game.getAbilityName() + " | " + active, 414, 52);
         g.drawString(
                 effects.isEmpty()
-                        ? "Level " + (game.getLevel() + 1) + " / 4   |   Memory bonus: "
-                                + (!game.getMemoryValid() ? "missed"
-                                        : game.getMemoryNext() == 5 ? "earned"
-                                                : "next " + game.getMemoryNext())
+                        ? "Level " + (game.getLevel() + 1)
+                                + (game.season().isBoss() ? " / 5 | Defeat the boss"
+                                        : " / 5   |   Memory bonus: "
+                                                + (!game.getMemoryValid() ? "missed"
+                                                        : game.getMemoryNext() == 5 ? "earned"
+                                                                : "next " + game.getMemoryNext()))
                         : effects,
                 18, 48);
     }
@@ -382,8 +426,12 @@ public final class BrickBreaker extends JPanel {
         String title = "", subtitle = "";
         switch (game.getState()) {
         case WELCOME:
-            title = "Welcome To The Brick Breaker";
-            subtitle = "FOUR SEASONS. ONE ADVENTURE.";
+            title = "BRICK BLOCK";
+            subtitle = "FOUR SEASONS. ONE FINAL BATTLE.";
+            break;
+        case SELECTING:
+            title = "Choose Your Stage";
+            subtitle = (selected.ordinal() + 1) + ". " + selected.theme.title + " / Start with 3 lives";
             break;
         case PAUSED:
             title = "Take a breather";
@@ -398,26 +446,58 @@ public final class BrickBreaker extends JPanel {
             subtitle = "Final score: " + game.getScore() + " / Season: " + game.season().title;
             break;
         case VICTORY:
-            title = "You conquered all four seasons!";
+            title = "The Pumpkin King is defeated!";
             subtitle = "VICTORY / Final score: " + game.getScore();
             break;
         default:
             break;
         }
-        g.drawImage(face, 372, 106, 56, 56, null);
+        g.drawImage(faces[Math.max(0, Math.min(2, game.getLives() - 1))], 372, 106, 56, 56, null);
         center(g, title, 210, 30, Color.WHITE);
         center(g, subtitle, 246, 14, new Color(166, 207, 185));
+        if (game.getState() == GameModel.State.SELECTING) {
+            g.setColor(selected.theme.accent);
+            g.fillRoundRect(180, 455, 440, 50, 16, 16);
+            center(g,
+                    selected == Stage.BOSS ? "Boss: bouncing ball + laser paddle"
+                            : selected.theme.title + " themed bricks and environment",
+                    486, 16, selected.theme.background);
+        }
         if (game.getState() == GameModel.State.WELCOME) {
             center(g, "Arrows / A-D or mouse to move. Space to launch. P / Esc to pause.", 435, 14,
                     Color.LIGHT_GRAY);
-            center(g, "Sleeping: two hits | Shy: dodges | Fighting: shoots", 466, 13, Color.LIGHT_GRAY);
+            center(g, "Random drops: W wide | S slow | R rescue | F freeze | M multiball | + life", 466, 13,
+                    Color.LIGHT_GRAY);
             center(g, "Numbered bricks: break 1-2-3-4 | Catch W: wider paddle, S: slower ball", 491, 13,
                     Color.LIGHT_GRAY);
             center(g, "Catch R: rescue shield | F: freeze enemies | E: charged season power", 530, 13,
                     Color.LIGHT_GRAY);
-            center(g, "Season powers: heal / pierce / lantern / freeze + double points", 555, 12,
+            center(g, "Boss fight: hold X or Fire Laser. Faces change with remaining lives.", 555, 12,
                     Color.LIGHT_GRAY);
         }
+    }
+
+    private void drawBoss(Graphics2D g) {
+        Boss boss = game.getBoss();
+        int x = (int) boss.getX();
+        g.setColor(new Color(255, 140, 40));
+        g.fillOval(x, 115, 220, 100);
+        g.setColor(new Color(130, 60, 15));
+        g.drawOval(x + 50, 115, 120, 100);
+        g.setColor(new Color(70, 120, 60));
+        g.fillRect(x + 100, 100, 20, 18);
+        g.setColor(Color.YELLOW);
+        g.fillPolygon(new int[] { x + 35, x + 70, x + 65 }, new int[] { 140, 140, 162 }, 3);
+        g.fillPolygon(new int[] { x + 150, x + 185, x + 155 }, new int[] { 140, 140, 162 }, 3);
+        g.fillPolygon(new int[] { x + 50, x + 85, x + 110, x + 135, x + 170, x + 160, x + 60 },
+                new int[] { 177, 185, 175, 185, 177, 199, 199 }, 7);
+        g.setColor(Color.DARK_GRAY);
+        g.fillRoundRect(250, 72, 300, 16, 8, 8);
+        g.setColor(boss.isEnraged() ? Color.RED : Color.ORANGE);
+        g.fillRoundRect(250, 72, boss.getHealth() * 3, 16, 8, 8);
+        center(g, "PUMPKIN KING " + boss.getHealth() + " / 100", 100, 12, Color.WHITE);
+        if (boss.isWarning())
+            center(g, "INCOMING! Move your paddle", 250, 20, Color.ORANGE);
     }
 
     private void center(Graphics2D g, String text, int y, int size, Color color) {
