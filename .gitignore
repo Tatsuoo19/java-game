@@ -1,2 +1,8 @@
 /out/
 *.class
+/tests/
+/Final Requirements Guidelines.pdf
+/MEMBER-4-WALKTHROUGH.md
+/VIDEO-GUIDE.md
+/assets/*.md
+/assets/music/*.md
