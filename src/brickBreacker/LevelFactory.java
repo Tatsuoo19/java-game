@@ -1,5 +1,7 @@
 package brickBreacker;
 
+import brickBreacker.GameBrick.*;
+
 import java.util.ArrayList;
 import java.util.List;
 

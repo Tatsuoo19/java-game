@@ -100,6 +100,8 @@ These tracks have not yet been supplied. Missing or unsupported music uses the o
 
 ## OOP structure and checks
 
+The five concrete brick subclasses are grouped as static nested classes inside GameBrick.java, reducing navigation while preserving inheritance and polymorphism. See [VIDEO-GUIDE.md](VIDEO-GUIDE.md) for a timed presentation outline and explanations of all required OOP concepts.
+
 GameBrick is abstract; its five subclasses implement behavior polymorphically through BrickContext. SeasonAbility supplies four implementations. GameModel composes balls, paddle, boss, effects and laser controller; state is private and collections are exposed as unmodifiable views. Boss and LaserPaddle own their timers and rules. Randomness is injectable for deterministic tests. GameAudio implements AutoCloseable and handles missing/device failures.
 
 ```sh
