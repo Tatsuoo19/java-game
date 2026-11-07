@@ -1,114 +1,103 @@
 # BRICK BLOCK
 
-A Java 8+ desktop game built with Swing, Java2D and Java Sound. No database or game engine. All game progress is held in memory and is lost on exit.
+BRICK BLOCK is a 2D Java game where you control a paddle, bounce a ball, and break bricks across four seasonal stages. Each season has its own appearance and ability. The adventure ends with a battle against the Pumpkin King.
 
-## Run
+## How to play
 
-From the project directory:
+Move the paddle to keep the ball in play and clear the bricks. You begin with three lives. Missing the last active ball costs one life, and losing all your lives ends the game.
+
+Choose **Start Adventure** to begin in Winter, or use **Select Level** to start at any stage. Selecting a stage starts a new run with three lives and zero score, then continues through the remaining levels. Clearing a seasonal stage restores one life, up to a maximum of three.
+
+The ball gradually gets faster as you play, reaching twice its starting speed after 50 seconds of active play. Speed resets at the start of each stage.
+
+## Stages
+
+- **Winter:** Snow-themed scenery with sleeping, shy, fighting, and memory bricks.
+- **Spring:** Cherry blossoms, colorful bricks, and a healing ability.
+- **Summer:** Tropical scenery, dodging bricks, and a piercing-ball ability.
+- **Autumn / Halloween:** A dark playfield, spooky decorations, and attacking bricks. Light around the ball helps you follow it.
+- **Pumpkin King:** A final boss battle using the ball and a laser-equipped paddle.
+
+Each seasonal stage has 24 bricks. All five stages are available through the level selection menu.
+
+## Special bricks
+
+Some bricks do more than stay in place:
+
+- **Sleeping bricks** need two hits to break.
+- **Shy bricks** move away when a ball gets close.
+- **Fighting bricks** shoot projectiles that temporarily slow the paddle.
+- **Memory bricks** award a 100-point bonus when destroyed in the order 1, 2, 3, 4.
+
+Each destroyed brick normally awards 10 points.
+
+## Power-ups
+
+Destroyed bricks have a chance to drop a power-up. Catch it with the paddle to use it.
+
+| Pickup | Effect |
+| --- | --- |
+| **W — Wide Paddle** | Makes the paddle wider for eight seconds. |
+| **S — Slow Ball** | Slows active balls for eight seconds. |
+| **R — Rescue Shield** | Saves one ball that would otherwise be missed. |
+| **F — Freeze** | Stops enemy movement, firing, and projectiles for five seconds. |
+| **M — Multiball** | Adds balls, up to three at a time. |
+| **+ — Extra Life** | Restores one life, or gives 50 points if lives are already full. |
+
+During multiball, you only lose a life when the last ball is missed.
+
+## Seasonal abilities
+
+Breaking bricks fills the Season Power meter. Once it reaches 100%, press **E** or click the ready power button.
+
+| Season | Ability |
+| --- | --- |
+| Winter | **Deep Freeze:** Freezes enemies and doubles brick points for eight seconds. |
+| Spring | **Second Bloom:** Restores a life, or grants a rescue shield at full lives. |
+| Summer | **Sunburst:** Lets the ball pass through bricks for six seconds. |
+| Autumn | **Lantern:** Lights the field, prevents ball invisibility, clears enemy shots, and stops firing for eight seconds. |
+
+Temporary powers and charge reset when you lose a life or move to another stage.
+
+## Boss battle
+
+The Pumpkin King has a health bar and moves across the top of the playfield. Hit it with the ball or fire lasers from the paddle to deal damage.
+
+The boss alternates between aimed shots and a spread of projectiles. Its attacks become faster when its health reaches half. A warning appears before each attack.
+
+Lasers have limited energy. Release the fire control to let them recharge. Defeating the boss completes the game.
+
+## Face expressions and sound
+
+The ball displays a group member's face. Its expression follows the remaining lives: happy with three, sad with two, and angry with one. Gaining a life changes the expression back.
+
+The game includes background music and sound effects, with a Sound button to mute them. Separate music files can be assigned to each stage; these tracks are still pending, so the game currently uses its built-in melody.
+
+## Controls
+
+| Control | Action |
+| --- | --- |
+| Left/Right arrows or A/D | Move the paddle in Keyboard mode |
+| Mouse movement | Move the paddle in Mouse mode |
+| Space | Launch the ball |
+| Click the playfield | Launch in Mouse mode |
+| P or Escape | Pause or resume |
+| E | Activate a charged seasonal ability |
+| Hold X or Fire Laser | Shoot during the boss battle |
+
+Choose Keyboard or Mouse mode on the welcome screen. The pause menu also lets you restart, select a level, or return to the main menu. Switching away from the window pauses the game.
+
+## Running the game
+
+Requires JDK 8 or later. From the project folder:
 
 ```sh
 javac -d out -sourcepath src src/brickBreacker/Brick.java
 java -cp out brickBreacker.Brick
 ```
 
-Keep the package spelling `brickBreacker`. In VS Code you can also run `Brick.main`.
+Keep the `assets` folder with the project and run from the project folder so the images can load. Progress is not saved after closing the game.
 
-## Play and stage selection
+## Credits
 
-Choose **Start Adventure** to begin in Winter, or **Select Level** to choose any stage and click **Start Selected Level**. Every selection starts with three lives and zero score, then continues through the remaining stages. **Restart Game** and **Play Again** restart from the selected starting stage.
-
-1. Winter: snowy blue scenery and all special brick types.
-2. Spring: cherry blossoms, memory bricks and sleeping bricks.
-3. Summer: tropical waves and shy bricks.
-4. Autumn / Halloween: spooky bricks, fighting bricks and darkness around the ball.
-5. Pumpkin King: a boss battle without ordinary bricks.
-
-The four seasonal stages each have 24 bricks. Clear them to continue; defeating the boss wins the game. Score and lives appear at the top. Clearing a season restores one life, capped at three.
-
-## Controls
-
-- Arrow keys or A/D: move the paddle in Keyboard mode.
-- Mouse movement: steer in Mouse mode (choose it on the welcome screen).
-- Space or a playfield click in Mouse mode: launch.
-- P, Escape or **Pause**: pause. **Resume** continues; **Main Menu** returns to the welcome screen.
-- E or **Season Power**: activate a fully charged seasonal ability.
-- Hold X or hold **Fire Laser**: fire in the boss stage.
-- **Sound**: mute/unmute music and effects.
-- Close the window to exit. Switching away pauses automatically.
-
-All active gameplay, attack and power timers freeze while paused or waiting to launch. Laser energy also waits while docked. Memory previews last three seconds before seasonal stages.
-
-## Bricks, balls and scoring
-
-Sleeping bricks take two hits. Shy bricks dodge the nearest ball. Fighting bricks shoot slowing projectiles (up to three at once); shots slow the paddle for two seconds without removing lives.
-
-Destroy numbered memory bricks in order 1-2-3-4 for a 100-point bonus. A wrong order cancels only that stage's bonus. Ordinary destruction awards 10 points. Each destroyed brick adds 10 ability charge, capped at 100.
-
-Ball speed rises smoothly by 10% every five seconds of launched play, capped at 2x after 50 seconds. The timer advances once for the whole game, including multiball. Losing a life preserves speed; a new stage or restart resets it.
-
-Lose a life only when the last ball is missed. A replacement ball docks for relaunch; zero lives ends the game. A rescue shield saves one missed ball.
-
-## Random power-ups
-
-Each destroyed brick has a 25% chance to drop one of six equally likely pickups. Catch it with the paddle. There are no guaranteed drop positions.
-
-| Label | Effect |
-| --- | --- |
-| W | Wide paddle for eight seconds |
-| S | Slow ball for eight seconds: 0.65 times current speed, including acceleration |
-| R | One-use rescue shield; maximum one |
-| F | Freeze shy movement, enemy firing and enemy projectiles for five seconds |
-| M | Add two balls at different angles, capped at three; replenish missing balls |
-| + | One extra life, capped at three; at full lives award 50 points |
-
-Timed effects refresh rather than stack. Freeze keeps the longer duration. Ball effects apply to all active balls. Losing the final ball clears powers, pickups and projectiles. Level changes, restart and returning to the menu also clear temporary effects.
-
-## Seasonal abilities
-
-| Season | Charged ability |
-| --- | --- |
-| Winter | Deep Freeze: eight-second enemy freeze and double brick points |
-| Spring | Second Bloom: restore one life, or grant a shield at full lives |
-| Summer | Sunburst: six-second piercing; one damage per separate brick contact |
-| Autumn | Lantern: eight seconds of light, no invisibility, cleared enemy shots and blocked firing |
-
-Memory bonuses stay at 100 during double scoring. Charge is consumed on activation and resets after life loss or a level change. The boss uses the Laser Paddle instead of seasonal abilities.
-
-## Pumpkin King
-
-The boss has 100 health. Each ball contact deals five damage and bounces the ball. It alternates three aimed shots and five-shot fans, with a visible warning before firing. Below half health it attacks every two seconds instead of three and uses faster projectiles.
-
-Boss attacks slow the paddle, with a one-second shared hit cooldown. Losing the final ball costs one life, clears shots and restores laser energy; boss health and speed progression remain.
-
-Lasers deal one damage per hit, firing every 0.25 seconds while held. Energy lasts three seconds. Release fire for one second to begin recharging at half an energy second per second. Energy and firing are shown in the HUD. Combat starts after launch.
-
-## Face expressions
-
-All balls use the member portrait: happy at three lives, sad at two, angry at one. Healing updates expressions immediately. Edited assets are `assets/face-happy.png`, `assets/face-sad.png` and `assets/face-angry.png`; the original JPG is preserved. Missing variants use the original portrait, and missing originals use a drawn face. Image-edit prompts and provenance are in `assets/EXPRESSION-ART.md`.
-
-## Your stage music
-
-Add Java Sound-compatible PCM WAV tracks to:
-
-- `assets/music/winter.wav`
-- `assets/music/spring.wav`
-- `assets/music/summer.wav`
-- `assets/music/autumn.wav`
-- `assets/music/boss.wav`
-
-These tracks have not yet been supplied. Missing or unsupported music uses the original synthesized melody and prints a diagnostic. Stage changes stop the old track and start the selected one. Audio-device failure allows silent gameplay. Run from the project directory or package the assets as classpath resources at the same paths.
-
-## OOP structure and checks
-
-The five concrete brick subclasses are grouped as static nested classes inside GameBrick.java, reducing navigation while preserving inheritance and polymorphism. See [VIDEO-GUIDE.md](VIDEO-GUIDE.md) for a timed presentation outline and explanations of all required OOP concepts.
-
-GameBrick is abstract; its five subclasses implement behavior polymorphically through BrickContext. SeasonAbility supplies four implementations. GameModel composes balls, paddle, boss, effects and laser controller; state is private and collections are exposed as unmodifiable views. Boss and LaserPaddle own their timers and rules. Randomness is injectable for deterministic tests. GameAudio implements AutoCloseable and handles missing/device failures.
-
-```sh
-javac -Xlint:all -d out -sourcepath src src/brickBreacker/Brick.java tests/brickBreacker/GameModelTest.java
-java "-Djava.awt.headless=true" -cp out brickBreacker.GameModelTest
-```
-
-Tests cover gameplay, selected-stage progression, powers, speed, multiball, drops, boss/laser rules, portrait loading and headless rendering. Preview images are written under ignored `out/`. Interactive controls, actual music and boss difficulty should also be checked by playing.
-
-Original project credited to Sagar Mishra.
+Original project credited to Sagar Mishra. Details about the edited portrait assets are recorded in [assets/EXPRESSION-ART.md](assets/EXPRESSION-ART.md).
