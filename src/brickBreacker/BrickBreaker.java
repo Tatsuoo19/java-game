@@ -1,10 +1,10 @@
 package brickBreacker;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import javax.swing.*;
 
 /** Swing view/controller; all gameplay lives in GameModel. */
 @SuppressWarnings("serial")
