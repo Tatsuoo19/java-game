@@ -3,7 +3,7 @@ package brickBreacker;
 import java.awt.geom.Rectangle2D;
 
 public class Ball {
-    public static final int SIZE = 32;
+    public static final int SIZE = 48;
     private double x, y, vx, vy;
     private boolean launched;
 
@@ -73,6 +73,7 @@ public class Ball {
     public void bounceOff(Paddle paddle) {
         y = Paddle.Y - SIZE;
         double offset = (x + SIZE / 2.0 - paddle.getX() - paddle.width() / 2.0) / (paddle.width() / 2.0);
+        offset = Math.max(-1, Math.min(1, offset));
         double speed = Math.hypot(vx, vy);
         vx = offset * speed * .8;
         vy = -Math.sqrt(speed * speed - vx * vx);

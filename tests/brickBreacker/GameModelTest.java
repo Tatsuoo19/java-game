@@ -605,8 +605,14 @@ public class GameModelTest {
         Ball ball = new Ball();
         set(ball, "x", 790);
         ball.constrainToWalls();
-        check(ball.getX() + Ball.SIZE == 792 && ball.bounds().getWidth() == 32,
+        check(ball.getX() + Ball.SIZE == 792 && ball.bounds().getWidth() == 48,
                 "Enlarged ball respects walls");
+        Paddle edgePaddle = new Paddle();
+        ball.launch(0);
+        set(ball, "x", edgePaddle.getX() + edgePaddle.width() - 1);
+        ball.bounceOff(edgePaddle);
+        check(Double.isFinite(ball.getVx()) && Double.isFinite(ball.getVy()) && ball.getVy() < 0,
+                "Large ball grazing paddle edge bounces with finite velocity");
     }
 
     private static void checkOopContracts() {

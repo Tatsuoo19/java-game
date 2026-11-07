@@ -41,12 +41,12 @@ public final class BallArtwork {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             g.setClip(new Ellipse2D.Double(3, 3, 122, 122));
-            // Face-centered square from the supplied 1080 x 1920 portrait.
+            // Zoom toward the expression, trimming extra hat and background.
             boolean variant = path.contains("face-");
-            int side = variant ? Math.min(source.getWidth(), source.getHeight())
-                    : (int) (source.getWidth() * .65);
-            int x = variant ? (source.getWidth() - side) / 2 : (int) (source.getWidth() * .285);
-            int y = variant ? (source.getHeight() - side) / 2 : (int) (source.getHeight() * .335);
+            int side = variant ? (int) (Math.min(source.getWidth(), source.getHeight()) * .80)
+                    : (int) (source.getWidth() * .60);
+            int x = variant ? (source.getWidth() - side) / 2 : (int) (source.getWidth() * .31);
+            int y = variant ? (int) (source.getHeight() * .18) : (int) (source.getHeight() * .36);
             side = Math.min(side, Math.min(source.getWidth() - x, source.getHeight() - y));
             g.drawImage(source, 3, 3, 125, 125, x, y, x + side, y + side, null);
             g.setClip(null);
