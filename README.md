@@ -95,9 +95,3 @@ Requires JDK 8 or later. From the project folder:
 javac -d out -sourcepath src src/brickBreacker/Brick.java
 java -cp out brickBreacker.Brick
 ```
-
-Keep the `assets` folder with the project and run from the project folder so the images can load. Progress is not saved after closing the game.
-
-## Credits
-
-Original project credited to Sagar Mishra. Details about the edited portrait assets are recorded in [assets/EXPRESSION-ART.md](assets/EXPRESSION-ART.md).
