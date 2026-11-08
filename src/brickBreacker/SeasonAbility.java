@@ -1,8 +1,6 @@
 package brickBreacker;
 
-/**
- * Each season supplies a different implementation of the same ability contract.
- */
+
 public interface SeasonAbility {
     String name();
 

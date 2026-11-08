@@ -1,6 +1,5 @@
 package brickBreacker;
 
-/** Owns temporary effects; only the simulation changes them. */
 public final class GameEffects {
     private int charge;
     private boolean shield;
